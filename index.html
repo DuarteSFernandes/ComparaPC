@@ -31,7 +31,7 @@
     position: relative;
     z-index: 1;
     text-align: center;
-    padding: 60px 20px 30px;
+    padding: 40px 20px 20px;
   }
 
   .logo {
@@ -46,7 +46,7 @@
   }
 
   header p {
-    margin-top: 12px;
+    margin-top: 8px;
     color: #9aa5c9;
     font-size: 1.05rem;
     max-width: 560px;
@@ -57,8 +57,8 @@
   .jogos-filtro {
     position: relative;
     z-index: 1;
-    max-width: 1100px;
-    margin: 30px auto 0;
+    max-width: 1300px;
+    margin: 20px auto 0;
     padding: 0 24px;
     display: flex;
     flex-wrap: wrap;
@@ -89,28 +89,38 @@
     border-color: transparent;
   }
 
-  /* Painel de Filtros Adicional */
-  .painel-filtros {
+  /* Layout principal com Barra Lateral */
+  .layout-container {
     position: relative;
     z-index: 1;
-    max-width: 1100px;
-    margin: 20px auto 0;
-    padding: 16px 20px;
+    max-width: 1300px;
+    margin: 30px auto 0;
+    padding: 0 24px 80px;
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+  }
+
+  /* Sidebar Filtros Esquerda */
+  .painel-filtros {
+    width: 260px;
+    flex-shrink: 0;
     background: rgba(22, 29, 51, 0.6);
     border: 1px solid rgba(124, 92, 255, 0.2);
-    border-radius: 16px;
+    border-radius: 18px;
+    padding: 24px 20px;
     backdrop-filter: blur(6px);
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 24px;
-    justify-content: space-between;
-    align-items: center;
+    position: sticky;
+    top: 20px;
   }
 
   .filtro-item {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    gap: 10px;
     font-size: 0.88rem;
     color: #b7c0e0;
   }
@@ -119,24 +129,26 @@
     font-weight: 700;
     color: #00f0ff;
     text-transform: uppercase;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     letter-spacing: 0.5px;
   }
 
   .filtro-item input[type="range"] {
     accent-color: #00f0ff;
     cursor: pointer;
+    width: 100%;
   }
 
   .checkboxes-group {
     display: flex;
-    gap: 12px;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .checkbox-label {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     cursor: pointer;
     font-size: 0.85rem;
   }
@@ -147,15 +159,12 @@
   }
 
   main {
-    position: relative;
-    z-index: 1;
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 30px 24px 80px;
+    flex-grow: 1;
+    min-width: 0;
   }
 
   .section-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 6px; color: #f2f5ff; }
-  .section-sub { color: #7c86ab; font-size: 0.92rem; margin-bottom: 28px; }
+  .section-sub { color: #7c86ab; font-size: 0.92rem; margin-bottom: 24px; }
 
   .estado {
     text-align: center;
@@ -165,7 +174,7 @@
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 22px;
   }
 
@@ -225,6 +234,12 @@
 
   footer { position: relative; z-index: 1; text-align: center; padding: 30px 20px 50px; color: #566082; font-size: 0.85rem; }
   footer a { color: #00f0ff; text-decoration: none; }
+
+  /* Adaptabilidade para ecrãs mais pequenos */
+  @media (max-width: 850px) {
+    .layout-container { flex-direction: column; }
+    .painel-filtros { width: 100%; position: relative; top: 0; }
+  }
 </style>
 </head>
 <body>
@@ -236,38 +251,42 @@
 
 <div class="jogos-filtro" id="jogosFiltro"></div>
 
-<!-- Filtros de Preço, Marca e VRAM -->
-<div class="painel-filtros">
-  <div class="filtro-item">
-    <label class="titulo-filtro">Preço Máx:</label>
-    <input type="range" id="filtroPreco" min="0" max="3000" step="50" value="3000" oninput="atualizarLabelPreco(); renderizar();">
-    <span id="valorPrecoLabel" style="color: #00f0ff; font-weight: 700;">3000€</span>
-  </div>
-
-  <div class="filtro-item">
-    <label class="titulo-filtro">Marca:</label>
-    <div class="checkboxes-group">
-      <label class="checkbox-label"><input type="checkbox" value="NVIDIA" class="filtro-marca" onchange="renderizar()" checked> NVIDIA</label>
-      <label class="checkbox-label"><input type="checkbox" value="AMD" class="filtro-marca" onchange="renderizar()" checked> AMD</label>
-      <label class="checkbox-label"><input type="checkbox" value="INTEL" class="filtro-marca" onchange="renderizar()" checked> Intel</label>
+<div class="layout-container">
+  <!-- Barra Lateral com Filtros à Esquerda -->
+  <aside class="painel-filtros">
+    <div class="filtro-item">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <label class="titulo-filtro">Preço Máximo</label>
+        <span id="valorPrecoLabel" style="color: #00f0ff; font-weight: 700;">3000€</span>
+      </div>
+      <input type="range" id="filtroPreco" min="0" max="3000" step="50" value="3000" oninput="atualizarLabelPreco(); renderizar();">
     </div>
-  </div>
 
-  <div class="filtro-item">
-    <label class="titulo-filtro">VRAM:</label>
-    <div class="checkboxes-group">
-      <label class="checkbox-label"><input type="checkbox" value="8" class="filtro-vram" onchange="renderizar()"> 8GB</label>
-      <label class="checkbox-label"><input type="checkbox" value="12" class="filtro-vram" onchange="renderizar()"> 12GB+</label>
-      <label class="checkbox-label"><input type="checkbox" value="16" class="filtro-vram" onchange="renderizar()"> 16GB+</label>
+    <div class="filtro-item">
+      <label class="titulo-filtro">Marca</label>
+      <div class="checkboxes-group">
+        <label class="checkbox-label"><input type="checkbox" value="NVIDIA" class="filtro-marca" onchange="renderizar()" checked> NVIDIA</label>
+        <label class="checkbox-label"><input type="checkbox" value="AMD" class="filtro-marca" onchange="renderizar()" checked> AMD</label>
+        <label class="checkbox-label"><input type="checkbox" value="INTEL" class="filtro-marca" onchange="renderizar()" checked> Intel</label>
+      </div>
     </div>
-  </div>
+
+    <div class="filtro-item">
+      <label class="titulo-filtro">VRAM Mínima</label>
+      <div class="checkboxes-group">
+        <label class="checkbox-label"><input type="checkbox" value="8" class="filtro-vram" onchange="renderizar()"> 8GB ou mais</label>
+        <label class="checkbox-label"><input type="checkbox" value="12" class="filtro-vram" onchange="renderizar()"> 12GB ou mais</label>
+        <label class="checkbox-label"><input type="checkbox" value="16" class="filtro-vram" onchange="renderizar()"> 16GB ou mais</label>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="section-title" id="tituloSeccao">Placas Gráficas</div>
+    <div class="section-sub" id="subtituloSeccao">A carregar preços...</div>
+    <div id="conteudo"></div>
+  </main>
 </div>
-
-<main>
-  <div class="section-title" id="tituloSeccao">Placas Gráficas</div>
-  <div class="section-sub" id="subtituloSeccao">A carregar preços...</div>
-  <div id="conteudo"></div>
-</main>
 
 <footer>
   Feito por Duarte com ❤️ &nbsp;•&nbsp; <a href="https://github.com/DuarteSFernandes/ComparaPC">ComparaPC no GitHub</a>
