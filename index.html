@@ -1,1 +1,434 @@
 
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ComparaPC — Compara, Monta, Joga</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: radial-gradient(circle at 20% 20%, #0f1729 0%, #05070d 60%);
+    color: #e6ecff;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0, 240, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 240, 255, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  header {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 60px 20px 30px;
+  }
+
+  .logo {
+    font-size: 2.6rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, #00f0ff, #7c5cff, #ff4ecd);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    display: inline-block;
+  }
+
+  header p {
+    margin-top: 12px;
+    color: #9aa5c9;
+    font-size: 1.05rem;
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .jogos-filtro {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 30px auto 0;
+    padding: 0 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .jogo-btn {
+    font-size: 0.85rem;
+    color: #b7c0e0;
+    background: rgba(22, 29, 51, 0.7);
+    border: 1px solid rgba(124, 92, 255, 0.25);
+    padding: 9px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 600;
+  }
+
+  .jogo-btn:hover {
+    border-color: rgba(0, 240, 255, 0.5);
+    color: #fff;
+  }
+
+  .jogo-btn.ativo {
+    background: linear-gradient(90deg, #00f0ff, #7c5cff);
+    color: #05070d;
+    border-color: transparent;
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 30px 24px 80px;
+  }
+
+  .section-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 6px; color: #f2f5ff; }
+  .section-sub { color: #7c86ab; font-size: 0.92rem; margin-bottom: 28px; }
+
+  .estado {
+    text-align: center;
+    padding: 60px 20px;
+    color: #7c86ab;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 22px;
+  }
+
+  .card {
+    position: relative;
+    background: linear-gradient(160deg, rgba(22, 29, 51, 0.9), rgba(12, 16, 30, 0.9));
+    border: 1px solid rgba(124, 92, 255, 0.18);
+    border-radius: 18px;
+    padding: 24px 20px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+
+  .card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(0, 240, 255, 0.55);
+    box-shadow: 0 18px 40px rgba(0, 240, 255, 0.15);
+  }
+
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; gap: 10px; }
+
+  .gpu-icon {
+    width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+    background: linear-gradient(135deg, #00f0ff30, #7c5cff30);
+    display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+  }
+
+  .desempenho-badge {
+    font-size: 0.68rem; padding: 4px 11px; border-radius: 999px; font-weight: 700; letter-spacing: 0.4px; white-space: nowrap;
+  }
+  .desempenho-badge.excelente { background: rgba(0, 255, 140, 0.12); color: #00ff8c; border: 1px solid rgba(0,255,140,0.3); }
+  .desempenho-badge.bom { background: rgba(255, 200, 0, 0.12); color: #ffc800; border: 1px solid rgba(255,200,0,0.3); }
+  .desempenho-badge.fraco { background: rgba(255, 78, 140, 0.12); color: #ff4e8c; border: 1px solid rgba(255,78,140,0.3); }
+
+  .card h3 { font-size: 1.05rem; margin-bottom: 4px; color: #f2f5ff; line-height: 1.3; }
+  .card .loja-count { font-size: 0.8rem; color: #7c86ab; margin-bottom: 14px; }
+
+  .lojas-list { margin-top: 6px; border-top: 1px solid rgba(124, 92, 255, 0.15); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .loja-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; gap: 8px; }
+  .loja-row .loja-nome { color: #b7c0e0; display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .loja-row.melhor .loja-nome::before { content: "★"; color: #00ff8c; font-size: 0.75rem; flex-shrink: 0; }
+  .loja-row .loja-preco { font-weight: 700; color: #e6ecff; white-space: nowrap; }
+  .loja-row.melhor .loja-preco { color: #00ff8c; }
+  .loja-row a { color: inherit; text-decoration: none; }
+  .loja-row a:hover { text-decoration: underline; }
+
+  .ver-mais {
+    margin-top: 12px; width: 100%; text-align: center; font-size: 0.78rem; color: #05070d;
+    background: linear-gradient(90deg, #00f0ff, #7c5cff); border: none; padding: 9px 14px;
+    border-radius: 10px; font-weight: 700; cursor: pointer; transition: opacity 0.2s ease;
+  }
+  .ver-mais:hover { opacity: 0.85; }
+
+  .extra-lojas { display: none; margin-top: 8px; }
+  .extra-lojas.aberto { display: flex; flex-direction: column; gap: 8px; }
+
+  footer { position: relative; z-index: 1; text-align: center; padding: 30px 20px 50px; color: #566082; font-size: 0.85rem; }
+  footer a { color: #00f0ff; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ComparaPC</div>
+  <p>Compara preços reais de placas gráficas em lojas portuguesas e descobre se aguentam os teus jogos favoritos.</p>
+</header>
+
+<div class="jogos-filtro" id="jogosFiltro"></div>
+
+<main>
+  <div class="section-title" id="tituloSeccao">Placas Gráficas</div>
+  <div class="section-sub" id="subtituloSeccao">A carregar preços...</div>
+  <div id="conteudo"></div>
+</main>
+
+<footer>
+  Feito por Duarte com ❤️ &nbsp;•&nbsp; <a href="https://github.com/DuarteSFernandes/ComparaPC">ComparaPC no GitHub</a>
+</footer>
+
+<script>
+// ---------- Base de dados de desempenho ----------
+const INDICE_GPU = {
+  "GT 710": 1, "GT 1030": 3, "GTX 1650": 8, "GTX 1660": 12, "RTX 3050": 15, 
+  "RTX 3060": 20, "RTX 3060 Ti": 26, "RTX 3070": 33, "RTX 3080": 45, "RTX 3090": 55,
+  "RTX 4060": 24, "RTX 4060 Ti": 29, "RTX 4070": 37, "RTX 4070 Super": 42, 
+  "RTX 4070 Ti": 45, "RTX 4070 Ti Super": 50, "RTX 4080": 62, "RTX 4090": 85,
+  "RTX 5050": 20, "RTX 5060": 25, "RTX 5060 Ti": 31, "RTX 5070": 43,
+  "RTX 5070 Ti": 57, "RTX 5080": 69, "RTX 5090": 100,
+  "RX 6500 XT": 10, "RX 6600": 18, "RX 6700 XT": 28, "RX 7600": 23, 
+  "RX 7700 XT": 39, "RX 7800 XT": 46, "RX 7900 XT": 65, "RX 7900 XTX": 75,
+  "RX 9060 XT": 27, "RX 9070 GRE": 48, "RX 9070": 52, "RX 9070 XT": 60,
+  "ARC A380": 8, "ARC A580": 16, "ARC A750": 22, "ARC A770": 25
+};
+
+const PERFIL_JOGO = {
+  "Fortnite": { fpsBase: 543, limiteExcelente: 120, limiteBom: 60, tetoFps: 400 },
+  "GTA V": { fpsBase: 565, limiteExcelente: 100, limiteBom: 60, tetoFps: 300 },
+  "Cyberpunk 2077": { fpsBase: 235, limiteExcelente: 90, limiteBom: 50, tetoFps: 200 },
+  "Valorant": { fpsBase: 1522, limiteExcelente: 200, limiteBom: 100, tetoFps: 500 },
+  "Warzone": { fpsBase: 435, limiteExcelente: 100, limiteBom: 60, tetoFps: 240 },
+};
+
+function encontrarModeloGpu(nomeProduto) {
+  if (!nomeProduto) return null;
+  const nome = nomeProduto.toUpperCase();
+  const modelos = Object.keys(INDICE_GPU).sort((a, b) => b.length - a.length);
+  for (const modelo of modelos) {
+    if (nome.includes(modelo.toUpperCase())) return modelo;
+  }
+  return null;
+}
+
+function calcularDesempenho(modeloGpu, nomeJogo) {
+  const indice = INDICE_GPU[modeloGpu];
+  const perfil = PERFIL_JOGO[nomeJogo];
+  if (indice === undefined || !perfil) return null;
+  const fpsBruto = (indice / 100) * perfil.fpsBase;
+  const fpsEstimado = Math.round(Math.min(fpsBruto, perfil.tetoFps));
+  let nota;
+  if (fpsEstimado >= perfil.limiteExcelente) nota = "EXCELENTE";
+  else if (fpsEstimado >= perfil.limiteBom) nota = "BOM";
+  else nota = "FRACO";
+  return { fps: fpsEstimado, nota };
+}
+
+// ---------- Estado ----------
+let produtos = [];
+let jogoAtivo = null;
+
+// ---------- Carregar dados ----------
+async function carregarDados() {
+  const conteudo = document.getElementById('conteudo');
+  const subtitulo = document.getElementById('subtituloSeccao');
+
+  try {
+    const resposta = await fetch('precos.json');
+    if (!resposta.ok) throw new Error('precos.json não encontrado');
+    produtos = await resposta.json();
+  } catch (erro) {
+    conteudo.innerHTML = `<div class="estado">Ainda não há dados de preços disponíveis. Corre o scraper e publica o ficheiro no repositório.</div>`;
+    subtitulo.textContent = 'Sem dados';
+    return;
+  }
+
+  montarFiltroJogos();
+  renderizar();
+}
+
+function montarFiltroJogos() {
+  const container = document.getElementById('jogosFiltro');
+  const jogos = Object.keys(PERFIL_JOGO);
+
+  const btnTodos = document.createElement('button');
+  btnTodos.className = 'jogo-btn ativo';
+  btnTodos.textContent = '🎮 Todas as GPUs';
+  btnTodos.onclick = () => selecionarJogo(null, btnTodos);
+  container.appendChild(btnTodos);
+
+  for (const jogo of jogos) {
+    const btn = document.createElement('button');
+    btn.className = 'jogo-btn';
+    btn.textContent = jogo;
+    btn.onclick = () => selecionarJogo(jogo, btn);
+    container.appendChild(btn);
+  }
+}
+
+function selecionarJogo(jogo, botaoClicado) {
+  jogoAtivo = jogo;
+  document.querySelectorAll('.jogo-btn').forEach(b => b.classList.remove('ativo'));
+  botaoClicado.classList.add('ativo');
+  renderizar();
+}
+
+// ---------- Agrupar produtos por modelo de GPU ----------
+function agruparPorModelo() {
+  const grupos = {};
+
+  for (const produto of produtos) {
+    // Suporta tanto "disponivel" como "preco" válido
+    const precoValido = typeof produto.preco === 'number' && produto.preco > 0;
+    if (produto.disponivel === false || !precoValido) continue;
+
+    const nomeItem = produto.nome || produto.modelo || '';
+    const modelo = encontrarModeloGpu(nomeItem);
+    if (!modelo) continue;
+
+    if (!grupos[modelo]) grupos[modelo] = [];
+    grupos[modelo].push(produto);
+  }
+
+  for (const modelo in grupos) {
+    grupos[modelo].sort((a, b) => a.preco - b.preco);
+  }
+
+  return grupos;
+}
+
+// ---------- Renderizar ----------
+function renderizar() {
+  const conteudo = document.getElementById('conteudo');
+  const subtitulo = document.getElementById('subtituloSeccao');
+  const grupos = agruparPorModelo();
+
+  let modelos = Object.keys(grupos);
+
+  modelos.sort((a, b) => grupos[a][0].preco - grupos[b][0].preco);
+
+  subtitulo.textContent = jogoAtivo
+    ? `${modelos.length} modelos — desempenho estimado para ${jogoAtivo}`
+    : `${modelos.length} modelos, preços reais recolhidos em lojas portuguesas`;
+
+  if (modelos.length === 0) {
+    conteudo.innerHTML = `<div class="estado">Nenhum modelo de GPU reconhecido nos dados atuais.</div>`;
+    return;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+
+  modelos.forEach((modelo, i) => {
+    grid.appendChild(criarCard(modelo, grupos[modelo], i));
+  });
+
+  conteudo.innerHTML = '';
+  conteudo.appendChild(grid);
+}
+
+function criarCard(modelo, ofertas, indice) {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const top = document.createElement('div');
+  top.className = 'card-top';
+
+  const icon = document.createElement('div');
+  icon.className = 'gpu-icon';
+  icon.textContent = '🎮';
+  top.appendChild(icon);
+
+  if (jogoAtivo) {
+    const desempenho = calcularDesempenho(modelo, jogoAtivo);
+    if (desempenho) {
+      const badge = document.createElement('span');
+      badge.className = 'desempenho-badge ' + desempenho.nota.toLowerCase();
+      badge.textContent = `${desempenho.nota} · ${desempenho.fps} FPS`;
+      top.appendChild(badge);
+    }
+  }
+
+  card.appendChild(top);
+
+  const titulo = document.createElement('h3');
+  titulo.textContent = modelo;
+  card.appendChild(titulo);
+
+  const contagem = document.createElement('div');
+  contagem.className = 'loja-count';
+  contagem.textContent = `${ofertas.length} oferta${ofertas.length > 1 ? 's' : ''} disponíve${ofertas.length > 1 ? 'is' : 'l'}`;
+  card.appendChild(contagem);
+
+  const lista = document.createElement('div');
+  lista.className = 'lojas-list';
+
+  const visiveis = ofertas.slice(0, 2);
+  const restantes = ofertas.slice(2);
+
+  visiveis.forEach((oferta, idx) => lista.appendChild(criarLinhaLoja(oferta, idx === 0)));
+  card.appendChild(lista);
+
+  if (restantes.length > 0) {
+    const extra = document.createElement('div');
+    extra.className = 'extra-lojas';
+    restantes.forEach(oferta => extra.appendChild(criarLinhaLoja(oferta, false)));
+    card.appendChild(extra);
+
+    const btn = document.createElement('button');
+    btn.className = 'ver-mais';
+    btn.textContent = `Ver mais ${restantes.length} oferta${restantes.length > 1 ? 's' : ''}`;
+    btn.onclick = () => {
+      extra.classList.toggle('aberto');
+      btn.textContent = extra.classList.contains('aberto')
+        ? 'Ver menos'
+        : `Ver mais ${restantes.length} oferta${restantes.length > 1 ? 's' : ''}`;
+    };
+    card.appendChild(btn);
+  }
+
+  return card;
+}
+
+function criarLinhaLoja(oferta, melhor) {
+  const row = document.createElement('div');
+  row.className = 'loja-row' + (melhor ? ' melhor' : '');
+
+  const link = document.createElement('a');
+  // Compatibilidade entre oferta.link e oferta.url
+  link.href = oferta.link || oferta.url || '#';
+  link.target = '_blank';
+  link.rel = 'noopener';
+
+  const nome = document.createElement('span');
+  nome.className = 'loja-nome';
+  nome.textContent = oferta.loja;
+  link.appendChild(nome);
+
+  const preco = document.createElement('span');
+  preco.className = 'loja-preco';
+  preco.textContent = Number(oferta.preco).toFixed(2) + '€';
+
+  row.appendChild(link);
+  row.appendChild(preco);
+
+  return row;
+}
+
+carregarDados();
+</script>
+
+</body>
+</html>
