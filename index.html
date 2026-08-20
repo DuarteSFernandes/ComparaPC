@@ -302,41 +302,120 @@
   <script>
     let todosOsGrupos = {};
 
-    // Mapeamento de FPS estimado a 1080p (exemplo expansível)
+    // Mapeamento de FPS estimado a 1080p expandido
     const INDICE_GPU = {
-      "RTX 5050": { fortnite: 120, gta: 165 },
-      "RTX 4060": { fortnite: 125, gta: 170 },
-      "RX 7600":  { fortnite: 115, gta: 155 },
-      "GTX 1650": { fortnite: 58,  gta: 75 }
+      // NVIDIA RTX 50 Series
+      "RTX 5090": { fortnite: 260, gta: 310 },
+      "RTX 5080": { fortnite: 220, gta: 270 },
+      "RTX 5070 Ti": { fortnite: 190, gta: 230 },
+      "RTX 5070": { fortnite: 170, gta: 210 },
+      "RTX 5060 Ti": { fortnite: 140, gta: 180 },
+      "RTX 5060": { fortnite: 125, gta: 165 },
+      "RTX 5050": { fortnite: 95, gta: 130 },
+
+      // NVIDIA RTX 40 Series
+      "RTX 4090": { fortnite: 240, gta: 290 },
+      "RTX 4080 SUPER": { fortnite: 200, gta: 250 },
+      "RTX 4080": { fortnite: 195, gta: 240 },
+      "RTX 4070 Ti SUPER": { fortnite: 175, gta: 220 },
+      "RTX 4070 Ti": { fortnite: 165, gta: 210 },
+      "RTX 4070 SUPER": { fortnite: 155, gta: 195 },
+      "RTX 4070": { fortnite: 145, gta: 185 },
+      "RTX 4060 Ti": { fortnite: 130, gta: 170 },
+      "RTX 4060": { fortnite: 120, gta: 150 },
+
+      // NVIDIA RTX 30 Series / GTX
+      "RTX 3060 Ti": { fortnite: 110, gta: 145 },
+      "RTX 3060": { fortnite: 95, gta: 125 },
+      "RTX 3050": { fortnite: 70, gta: 95 },
+      "GTX 1650": { fortnite: 58, gta: 75 },
+
+      // AMD RX 7000 Series
+      "RX 7900 XTX": { fortnite: 210, gta: 260 },
+      "RX 7900 XT": { fortnite: 185, gta: 230 },
+      "RX 7900 GRE": { fortnite: 165, gta: 205 },
+      "RX 7800 XT": { fortnite: 150, gta: 190 },
+      "RX 7700 XT": { fortnite: 130, gta: 165 },
+      "RX 7600 XT": { fortnite: 120, gta: 150 },
+      "RX 7600": { fortnite: 115, gta: 145 },
+
+      // Intel Arc
+      "ARC A770": { fortnite: 105, gta: 135 },
+      "ARC A750": { fortnite: 95, gta: 125 },
+      "ARC A580": { fortnite: 80, gta: 110 },
+      "ARC B580": { fortnite: 110, gta: 140 }
     };
 
-    // Classificação de Badges baseada em FPS
     function obterBadgePerformance(fps) {
-      if (fps >= 120) return { texto: 'EXCELENTE', classe: 'badge-excelente' };
-      if (fps >= 90)  return { texto: 'MUITO BOM', classe: 'badge-muito-bom' };
-      if (fps >= 60)  return { texto: 'BOM', classe: 'badge-bom' };
-      if (fps >= 40)  return { texto: 'SUFICIENTE', classe: 'badge-suficiente' };
+      if (fps >= 150) return { texto: 'EXCELENTE', classe: 'badge-excelente' };
+      if (fps >= 110) return { texto: 'MUITO BOM', classe: 'badge-muito-bom' };
+      if (fps >= 75)  return { texto: 'BOM', classe: 'badge-bom' };
+      if (fps >= 50)  return { texto: 'SUFICIENTE', classe: 'badge-suficiente' };
       return { texto: 'FRACO', classe: 'badge-fraco' };
     }
 
-    // Calcula dinamicamente a GPU mais cara do precos.json para o topo do slider
+    // Extrai o modelo base do título do produto
+    function extrairModeloBase(nome) {
+      const modelosConhecidos = [
+        "RTX 5090", "RTX 5080", "RTX 5070 Ti", "RTX 5070", "RTX 5060 Ti", "RTX 5060", "RTX 5050",
+        "RTX 4090", "RTX 4080 SUPER", "RTX 4080", "RTX 4070 Ti SUPER", "RTX 4070 Ti", "RTX 4070 SUPER", "RTX 4070", "RTX 4060 Ti", "RTX 4060",
+        "RTX 3060 Ti", "RTX 3060", "RTX 3050", "GTX 1650",
+        "RX 7900 XTX", "RX 7900 XT", "RX 7900 GRE", "RX 7800 XT", "RX 7700 XT", "RX 7600 XT", "RX 7600",
+        "ARC B580", "ARC A770", "ARC A750", "ARC A580"
+      ];
+
+      const nomeUpper = nome.toUpperCase();
+      for (const m of modelosConhecidos) {
+        if (nomeUpper.includes(m.toUpperCase())) return m;
+      }
+
+      // Fallback básico caso o modelo exato não esteja na lista de conhecidos
+      const partes = nome.split(' ');
+      return partes.slice(0, 3).join(' ');
+    }
+
+    // Agrupa a lista de produtos individuais por modelo
+    function agruparDadosPorModelo(listaProdutos) {
+      const grupos = {};
+      
+      listaProdutos.forEach(item => {
+        const nomeProd = item.nome || item.gpu || item.titulo || '';
+        const modelo = extrairModeloBase(nomeProd);
+
+        if (!grupos[modelo]) {
+          grupos[modelo] = [];
+        }
+
+        grupos[modelo].push({
+          loja: item.loja || 'Loja',
+          preco: typeof item.preco === 'number' ? item.preco : parseFloat(item.preco) || 0,
+          url: item.url || '#',
+          nome: nomeProd
+        });
+      });
+
+      // Ordena as ofertas dentro de cada grupo pelo menor preço
+      for (const m in grupos) {
+        grupos[m].sort((a, b) => a.preco - b.preco);
+      }
+
+      return grupos;
+    }
+
     function configurarSliderDinamico(dados) {
       let precoMaximoReal = 0;
 
       for (const modelo in dados) {
-        const ofertas = dados[modelo];
-        if (Array.isArray(ofertas)) {
-          ofertas.forEach(item => {
-            if (item.preco && item.preco > precoMaximoReal) {
-              precoMaximoReal = item.preco;
-            }
-          });
-        }
+        dados[modelo].forEach(item => {
+          if (item.preco && item.preco > precoMaximoReal) {
+            precoMaximoReal = item.preco;
+          }
+        });
       }
 
       const limiteMax = Math.ceil(precoMaximoReal / 100) * 100 || 3000;
       const slider = document.getElementById('filtroPreco');
-      
+
       if (slider) {
         slider.max = limiteMax;
         slider.value = limiteMax;
@@ -344,7 +423,6 @@
       }
     }
 
-    // Ordenação
     function ordenarGrupos(grupos, criterio) {
       const entradas = Object.entries(grupos);
 
@@ -355,8 +433,8 @@
         const precoA = produtosA[0]?.preco || 0;
         const precoB = produtosB[0]?.preco || 0;
 
-        const fpsA = INDICE_GPU[modeloA]?.fortnite || 0;
-        const fpsB = INDICE_GPU[modeloB]?.fortnite || 0;
+        const fpsA = INDICE_GPU[modeloA]?.fortnite || 60;
+        const fpsB = INDICE_GPU[modeloB]?.fortnite || 60;
 
         switch (criterio) {
           case 'preco-asc':  return precoA - precoB;
@@ -373,7 +451,6 @@
       return ordenado;
     }
 
-    // Filtragem de dados
     function atualizarFiltros() {
       const precoMax = parseFloat(document.getElementById('filtroPreco').value);
       document.getElementById('valorPrecoLabel').innerText = `${precoMax}€`;
@@ -387,23 +464,22 @@
         const produtos = todosOsGrupos[modelo];
         const menorPreco = produtos[0]?.preco || 0;
 
-        // Deteção da Marca do Chip
+        // Identificação de Marca
         let marcaModelo = 'NVIDIA';
         const mUpper = modelo.toUpperCase();
-        if (mUpper.includes('RX') || mUpper.includes('RADEON') || mUpper.includes('R9') || mUpper.includes('HD ')) {
+        if (mUpper.includes('RX') || mUpper.includes('RADEON')) {
           marcaModelo = 'AMD';
         } else if (mUpper.includes('ARC') || mUpper.includes('INTEL')) {
           marcaModelo = 'INTEL';
         }
 
-        // Extração de VRAM
+        // Identificação de VRAM
         const matchVram = modelo.match(/(\d+)\s?GB/i) || produtos[0]?.nome.match(/(\d+)\s?GB/i);
-        const vramModelo = matchVram ? parseInt(matchVram[1]) : 0;
+        const vramModelo = matchVram ? parseInt(matchVram[1]) : 8;
 
-        // Condições de validação
         const passaPreco = menorPreco <= precoMax;
         const passaMarca = marcasSelecionadas.includes(marcaModelo);
-        
+
         let passaVram = true;
         if (vramsSelecionadas.length > 0) {
           passaVram = vramsSelecionadas.some(vram => {
@@ -422,12 +498,9 @@
       }
 
       const criterio = document.getElementById('filtroOrdem').value;
-      const resultadoFinal = ordenarGrupos(gruposFiltrados, criterio);
-
-      renderizarCartoes(resultadoFinal);
+      renderizarCartoes(ordenarGrupos(gruposFiltrados, criterio));
     }
 
-    // Renderização dos cartões no HTML
     function renderizarCartoes(grupos) {
       const grelha = document.getElementById('grelhaGpus');
       grelha.innerHTML = '';
@@ -440,12 +513,12 @@
       for (const modelo in grupos) {
         const ofertas = grupos[modelo];
         const menorPreco = ofertas[0]?.preco ? `${ofertas[0].preco.toFixed(2)}€` : 'N/D';
-        const fpsEstimado = INDICE_GPU[modelo]?.fortnite || 60;
+        const fpsEstimado = INDICE_GPU[modelo]?.fortnite || 85;
         const badge = obterBadgePerformance(fpsEstimado);
 
         let ofertasHtml = ofertas.slice(0, 3).map(o => `
           <li class="item-loja">
-            <span>${o.loja || 'Loja'}</span>
+            <span>${o.loja}</span>
             <strong>${o.preco ? o.preco.toFixed(2) + '€' : ''}</strong>
           </li>
         `).join('');
@@ -467,15 +540,17 @@
       }
     }
 
-    // Carregamento inicial do ficheiro precos.json
+    // Carregamento inicial do ficheiro
     fetch('precos.json')
       .then(res => res.json())
       .then(dados => {
-        todosOsGrupos = dados;
+        // Aceita tanto formato de lista simples [] como dicionário já agrupado {}
+        const lista = Array.isArray(dados) ? dados : Object.values(dados).flat();
+        todosOsGrupos = agruparDadosPorModelo(lista);
         configurarSliderDinamico(todosOsGrupos);
         atualizarFiltros();
       })
-      .catch(err => console.error("Erro ao carregar o precos.json:", err));
+      .catch(err => console.error("Erro ao carregar os dados:", err));
   </script>
 </body>
 </html>
