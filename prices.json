@@ -4995,6 +4995,9 @@
     "atualizado_em": "2026-08-19T13:05:53.474Z"
   },
   {
+
+
+    
     "nome": "Gráfica XFX Radeon RX 9070 GRE Gaming OC Triple Fan 12GB GDDR6",
     "loja": "Globaldata",
     "preco": 639.9,
@@ -5398,5 +5401,14 @@
     "url": "https://www.globaldata.pt/grafica-powercolor-radeon-rx-9060-xt-reaper-16gb-gddr6/RX9060XT-16G-A.html",
     "confirmado": true,
     "atualizado_em": "2026-08-19T13:09:06.011Z"
+  },
+  {
+    "nome": "Placa Gráfica Zotac GeForce RTX 5060 TI 8GB Twin Edge GDDR7 DLSS4",
+    "loja": "Chip7",
+    "preco": 499.9,
+    "disponivel": true,
+    "url": "https://chip7.pt/componentes-hardware/placas-graficas/nvidia/zotac/zt-b50610e-10m",
+    "confirmado": true,
+    "atualizado_em": "2026-08-22T15:59:56.877Z"
   }
 ]
