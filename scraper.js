@@ -1,5 +1,5 @@
 /**
- * ComparaPC — Scraper de preços atualizado e otimizado
+ * ComparaPC — GPU Price Tracker & Scraper
  */
 
 const fs = require("fs");
@@ -7,32 +7,38 @@ const puppeteer = require("puppeteer-extra");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 puppeteer.use(StealthPlugin());
 
-const LOJAS = [
+const STORES = [
   {
-    nome: "Chip7",
-    categorias: ["https://chip7.pt/componentes-hardware/placas-graficas"],
-    ehLinkDeProduto: (href) =>
-      href.includes("chip7.pt/componentes-hardware/placas-graficas/") &&
-      href.split("/").length >= 8,
-    urlPagina: (base, n) => `${base}?page=${n}`,
+    name: "Depau",
+    categories: ["https://www.depau.pt/componentes-hard-placas-graficas-c-11_21.html"],
+    isProductLink: (href) => href.includes("depau.pt/") && href.includes("-p-"),
+    pageUrl: (base, n) => `${base}?page=${n}`,
   },
   {
-    nome: "PcDiga",
-    categorias: [
+    name: "Chip7",
+    categories: ["https://chip7.pt/componentes-hardware/placas-graficas"],
+    isProductLink: (href) =>
+      href.includes("chip7.pt/componentes-hardware/placas-graficas/") &&
+      href.split("/").length >= 8,
+    pageUrl: (base, n) => `${base}?page=${n}`,
+  },
+  {
+    name: "PcDiga",
+    categories: [
       "https://www.pcdiga.com/componentes/placas-graficas/placas-graficas-nvidia",
       "https://www.pcdiga.com/componentes/placas-graficas/placas-graficas-amd",
     ],
-    ehLinkDeProduto: (href) =>
+    isProductLink: (href) =>
       href.includes("pcdiga.com/") && href.includes("placa-grafica-"),
-    urlPagina: (base, n) => `${base}?page=${n}`,
+    pageUrl: (base, n) => `${base}?page=${n}`,
   },
   {
-    nome: "PcComponentes",
-    categorias: [
+    name: "PcComponentes",
+    categories: [
       "https://www.pccomponentes.pt/placas-graficas-nvidia",
       "https://www.pccomponentes.pt/placas-graficas-amd",
     ],
-    ehLinkDeProduto: (href) => {
+    isProductLink: (href) => {
       if (!href.includes("pccomponentes.pt/")) return false;
       const lower = href.toLowerCase();
       if (
@@ -45,29 +51,29 @@ const LOJAS = [
       }
       return lower.includes("placa-grafica") || lower.includes("grafica-");
     },
-    urlPagina: (base, n) => `${base}?page=${n}`,
+    pageUrl: (base, n) => `${base}?page=${n}`,
   },
   {
-    nome: "Switch Technology",
-    categorias: [
+    name: "Switch Technology",
+    categories: [
       "https://switchtechnology.pt/produto-categoria/componentes/placas-graficas/",
     ],
-    ehLinkDeProduto: (href) => {
+    isProductLink: (href) => {
       const lower = href.toLowerCase();
       return (
         lower.includes("switchtechnology.pt/produto/") ||
         lower.includes("switchtechnology.pt/comprar/")
       );
     },
-    urlPagina: (base, n) => `${base}page/${n}/`,
+    pageUrl: (base, n) => `${base}page/${n}/`,
   },
   {
-    nome: "Globaldata",
-    categorias: [
+    name: "Globaldata",
+    categories: [
       "https://www.globaldata.pt/componentes/placas-graficas/placas-graficas-nvidia",
       "https://www.globaldata.pt/componentes/placas-graficas/placas-graficas-amd",
     ],
-    ehLinkDeProduto: (href) => {
+    isProductLink: (href) => {
       const lower = href.toLowerCase();
       if (!lower.endsWith(".html")) return false;
       if (
@@ -78,14 +84,25 @@ const LOJAS = [
       }
       return true;
     },
-    urlPagina: (base, n) => `${base}?page=${n}`,
+    pageUrl: (base, n) => `${base}?page=${n}`,
   },
 ];
 
-const MAX_PAGINAS_POR_CATEGORIA = 8;
+const MAX_PAGES_PER_CATEGORY = 8;
+const DATA_FILE = "prices.json";
+
+// Helper to normalize model names for matching across stores
+function normalizeGpuName(title) {
+  if (!title) return "";
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 async function main() {
-  console.log("A abrir o browser...\n");
+  console.log("Starting browser...\n");
   const browser = await puppeteer.launch({
     headless: true,
     args: [
@@ -97,140 +114,170 @@ async function main() {
     ],
   });
 
-  let todosOsResultados = [];
-  if (fs.existsSync("precos.json")) {
+  let currentDataset = [];
+  if (fs.existsSync(DATA_FILE)) {
     try {
-      todosOsResultados = JSON.parse(fs.readFileSync("precos.json", "utf-8"));
-      console.log(`Carregados ${todosOsResultados.length} produtos existentes de precos.json\n`);
+      currentDataset = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+      console.log(`Loaded ${currentDataset.length} existing entries from ${DATA_FILE}\n`);
     } catch {
-      todosOsResultados = [];
+      currentDataset = [];
     }
   }
 
   try {
-    for (const loja of LOJAS) {
-      console.log(`\n=== ${loja.nome} ===`);
+    for (const store of STORES) {
+      console.log(`\n=== Store: ${store.name} ===`);
 
-      let linksDeProdutos;
+      let productLinks;
       try {
-        linksDeProdutos = await descobrirProdutos(browser, loja);
-      } catch (erro) {
-        console.log(`  ⚠️  Falhou a descobrir produtos de ${loja.nome} (${erro.message}) — a passar à seguinte.`);
+        productLinks = await discoverProducts(browser, store);
+      } catch (error) {
+        console.log(` ⚠️ Failed to discover products for ${store.name} (${error.message}) — skipping.`);
         continue;
       }
-      console.log(`  ${linksDeProdutos.size} produto(s) encontrado(s).`);
+      console.log(` ${productLinks.size} product link(s) found.`);
 
-      for (const url of linksDeProdutos) {
-        if (todosOsResultados.some((p) => p.url === url)) {
-          continue;
-        }
-
-        let resultado = null;
+      for (const url of productLinks) {
+        let result = null;
         try {
-          resultado = await processarProduto(browser, url, loja.nome);
-        } catch (erro) {
-          console.log(`  ⚠️  Erro a processar produto (${erro.message}) — a continuar.`);
+          result = await processProduct(browser, url, store.name);
+        } catch (error) {
+          console.log(` ⚠️ Error processing product (${error.message}) — skipping.`);
         }
 
-        if (resultado) {
-          todosOsResultados.push(resultado);
+        if (result && result.price) {
+          saveOrUpdateGpu(currentDataset, result);
           
           try {
             fs.writeFileSync(
-              "precos.json",
-              JSON.stringify(todosOsResultados, null, 2),
+              DATA_FILE,
+              JSON.stringify(currentDataset, null, 2),
               "utf-8"
             );
           } catch (e) {
-            console.log(`  ⚠️  Erro ao guardar precos.json: ${e.message}`);
+            console.log(` ⚠️ Error saving ${DATA_FILE}: ${e.message}`);
           }
         }
 
-        await esperar(1200 + Math.random() * 1000);
+        await delay(1200 + Math.random() * 1000);
       }
     }
   } finally {
     try {
       await browser.close();
     } catch {
-      // Browser já encerrado
+      // Browser closed
     }
   }
 
-  const avisos = todosOsResultados.filter((r) => !r.confirmado).length;
-  console.log(`\nConcluído. Total de ${todosOsResultados.length} produtos guardados em precos.json.`);
-  if (avisos > 0) {
-    console.log(`⚠️  ${avisos} produto(s) sem preço confirmado — revê o ficheiro.`);
+  console.log(`\nExecution complete. Saved updated dataset to ${DATA_FILE}.`);
+}
+
+// Logic to merge new scraped prices into the existing JSON without losing other stores
+function saveOrUpdateGpu(dataset, item) {
+  const normTitle = normalizeGpuName(item.name);
+  
+  // Find GPU by matching normalized title
+  let existingGpu = dataset.find(g => normalizeGpuName(g.model || g.name) === normTitle);
+
+  const storeEntry = {
+    name: item.store,
+    price: item.price,
+    url: item.url,
+    available: item.available,
+    updatedAt: item.updatedAt
+  };
+
+  if (existingGpu) {
+    if (!existingGpu.stores) {
+      existingGpu.stores = [];
+    }
+    
+    // Check if store already exists for this model
+    const storeIdx = existingGpu.stores.findIndex(s => s.name === item.store);
+    if (storeIdx > -1) {
+      existingGpu.stores[storeIdx] = storeEntry;
+    } else {
+      existingGpu.stores.push(storeEntry);
+    }
+
+    // Recalculate lowest price
+    const validPrices = existingGpu.stores.filter(s => s.available && s.price > 0).map(s => s.price);
+    existingGpu.lowestPrice = validPrices.length > 0 ? Math.min(...validPrices) : item.price;
+  } else {
+    // New entry
+    dataset.push({
+      model: item.name,
+      lowestPrice: item.price,
+      stores: [storeEntry]
+    });
   }
 }
 
-async function descobrirProdutos(browser, loja) {
-  const encontrados = new Set();
+async function discoverProducts(browser, store) {
+  const found = new Set();
 
-  for (const categoriaBase of loja.categorias) {
-    let pagina = 1;
-    let continuar = true;
+  for (const baseCategory of store.categories) {
+    let pageNum = 1;
+    let keepGoing = true;
 
-    while (continuar && pagina <= MAX_PAGINAS_POR_CATEGORIA) {
-      const urlPagina =
-        pagina === 1 ? categoriaBase : loja.urlPagina(categoriaBase, pagina);
-
-      console.log(`  A ler categoria (página ${pagina}): ${urlPagina}`);
+    while (keepGoing && pageNum <= MAX_PAGES_PER_CATEGORY) {
+      const pageUrl = pageNum === 1 ? baseCategory : store.pageUrl(baseCategory, pageNum);
+      console.log(` Reading category page ${pageNum}: ${pageUrl}`);
 
       let page;
-      let linksNestaPagina = new Set();
+      let pageLinks = new Set();
 
       try {
         page = await browser.newPage();
-        await configurarPagina(page);
-        await page.goto(urlPagina, { waitUntil: "networkidle2", timeout: 35000 });
-        await esperar(1000);
+        await setupPage(page);
+        await page.goto(pageUrl, { waitUntil: "networkidle2", timeout: 35000 });
+        await delay(1000);
 
         const hrefs = await page.$$eval("a", (as) => as.map((a) => a.href));
         for (const href of hrefs) {
-          if (loja.ehLinkDeProduto(href)) {
-            linksNestaPagina.add(href.split("#")[0].split("?")[0]);
+          if (store.isProductLink(href)) {
+            pageLinks.add(href.split("#")[0].split("?")[0]);
           }
         }
-      } catch (erro) {
-        console.log(`    Falhou ao carregar a página (${erro.message}) — a parar esta categoria.`);
+      } catch (error) {
+        console.log(` Failed to load page (${error.message}) — skipping category.`);
         if (page) await page.close().catch(() => {});
         break;
       }
 
       if (page) await page.close().catch(() => {});
 
-      let novosNestaPagina = 0;
-      for (const link of linksNestaPagina) {
-        if (!encontrados.has(link)) {
-          encontrados.add(link);
-          novosNestaPagina++;
+      let newOnPage = 0;
+      for (const link of pageLinks) {
+        if (!found.has(link)) {
+          found.add(link);
+          newOnPage++;
         }
       }
 
-      console.log(`    ${linksNestaPagina.size} link(s) de produto (${novosNestaPagina} novos).`);
+      console.log(` ${pageLinks.size} product link(s) found (${newOnPage} new).`);
+      if (newOnPage === 0) keepGoing = false;
 
-      if (novosNestaPagina === 0) continuar = false;
-
-      pagina++;
-      await esperar(1200);
+      pageNum++;
+      await delay(1200);
     }
   }
 
-  return encontrados;
+  return found;
 }
 
-async function processarProduto(browser, url, nomeLoja) {
-  console.log(`  A processar: ${url}`);
+async function processProduct(browser, url, storeName) {
+  console.log(` Processing: ${url}`);
 
   let page;
   let html = "";
-  let textoVisivel = "";
-  let precoExtraidoDOM = null;
+  let visibleText = "";
+  let domPrice = null;
 
   try {
     page = await browser.newPage();
-    await configurarPagina(page);
+    await setupPage(page);
     await page.goto(url, { waitUntil: "networkidle2", timeout: 35000 });
 
     try {
@@ -240,9 +287,7 @@ async function processarProduto(browser, url, nomeLoja) {
       );
     } catch {}
 
-    // Extração robusta de preço: prioridade a dados estruturados JSON-LD e Meta Tags
-    precoExtraidoDOM = await page.evaluate(() => {
-      // 1. Tenta extrair via JSON-LD (ignora publicidade e prestações)
+    domPrice = await page.evaluate(() => {
       const scripts = document.querySelectorAll('script[type="application/ld+json"]');
       for (const script of scripts) {
         try {
@@ -254,22 +299,20 @@ async function processarProduto(browser, url, nomeLoja) {
               const offers = Array.isArray(item.offers) ? item.offers[0] : item.offers;
               if (offers && offers.price) {
                 const p = parseFloat(offers.price);
-                if (!isNaN(p) && p > 10) return p; // Descarta prestações irrisórias (<10€)
+                if (!isNaN(p) && p > 10) return p;
               }
             }
           }
         } catch (e) {}
       }
 
-      // 2. Tenta extrair da meta tag oficial de preço
       const metaPrice = document.querySelector('meta[property="product:price:amount"], meta[itemprop="price"]');
       if (metaPrice) {
         const val = parseFloat(metaPrice.getAttribute("content"));
         if (!isNaN(val) && val > 10) return val;
       }
 
-      // 3. Fallback no DOM excluindo seletores de financiamento/mensalidades
-      const seletores = [
+      const selectors = [
         "[data-price-type='finalPrice']",
         ".price",
         "[data-price]",
@@ -279,18 +322,17 @@ async function processarProduto(browser, url, nomeLoja) {
         ".pvp",
       ];
 
-      for (const sel of seletores) {
-        const elementos = document.querySelectorAll(sel);
-        for (const el of elementos) {
-          const textoPai = (el.parentElement ? el.parentElement.innerText : "").toLowerCase();
-          const textoProprio = el.innerText.toLowerCase();
+      for (const sel of selectors) {
+        const elements = document.querySelectorAll(sel);
+        for (const el of elements) {
+          const parentText = (el.parentElement ? el.parentElement.innerText : "").toLowerCase();
+          const selfText = el.innerText.toLowerCase();
 
-          // Ignora se estiver associado a modalidades de crédito ou mensalidades
           if (
-            textoPai.includes("mês") || textoPai.includes("mes") || 
-            textoPai.includes("klarna") || textoPai.includes("oney") ||
-            textoPai.includes("prestação") || textoPai.includes("prestacao") ||
-            textoProprio.includes("mês") || textoProprio.includes("mes")
+            parentText.includes("mês") || parentText.includes("mes") || 
+            parentText.includes("klarna") || parentText.includes("oney") ||
+            parentText.includes("prestação") || parentText.includes("prestacao") ||
+            selfText.includes("mês") || selfText.includes("mes")
           ) {
             continue;
           }
@@ -313,43 +355,44 @@ async function processarProduto(browser, url, nomeLoja) {
     });
 
     html = await page.content();
-    textoVisivel = await page.evaluate(() => document.body.innerText);
-  } catch (erro) {
-    console.log(`    Falhou ao aceder à página (${erro.message}).`);
+    visibleText = await page.evaluate(() => document.body.innerText);
+  } catch (error) {
+    console.log(` Failed to access page (${error.message}).`);
     if (page) await page.close().catch(() => {});
     return null;
   }
 
   if (page) await page.close().catch(() => {});
 
-  const preco = precoExtraidoDOM !== null ? precoExtraidoDOM : extrairPreco(textoVisivel);
-  const disponivel = extrairDisponibilidade(textoVisivel);
-  const titulo = extrairTitulo(html);
-  const ehGpu = /rtx|gtx|radeon|geforce|rx\s?\d{3,4}/i.test(titulo || "");
+  const price = domPrice !== null ? domPrice : extractPrice(visibleText);
+  const available = extractAvailability(visibleText);
+  const title = extractTitle(html);
+  
+  // Filter current generation GPUs
+  const isRecentGpu = /rtx\s*(30|40)\d{2}|rx\s*(6|7)\d{3}|arc\s*a\d{3}/i.test(title || "");
 
-  if (!ehGpu) {
-    console.log(`    ⚠️  Não parece ser uma GPU (título: "${titulo}") — ignorado.`);
+  if (!isRecentGpu) {
+    console.log(` ⚠️ Not a target current-gen GPU ("${title}") — skipped.`);
     return null;
   }
 
   console.log(
-    `    ${titulo} — ${preco !== null ? preco.toFixed(2) + "€" : "❌ Preço não encontrado"} — ${
-      disponivel ? "Disponível" : "Indisponível"
+    ` ${title} — ${price !== null ? price.toFixed(2) + "€" : "❌ Price not found"} — ${
+      available ? "Available" : "Out of stock"
     }`
   );
 
   return {
-    nome: titulo,
-    loja: nomeLoja,
-    preco: preco,
-    disponivel: disponivel,
+    name: title,
+    store: storeName,
+    price: price,
+    available: available,
     url: url,
-    confirmado: preco !== null,
-    atualizado_em: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 }
 
-async function configurarPagina(page) {
+async function setupPage(page) {
   await page.setUserAgent(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
   );
@@ -358,39 +401,38 @@ async function configurarPagina(page) {
   await page.setDefaultNavigationTimeout(35000);
 }
 
-function extrairPreco(texto) {
-  if (!texto) return null;
+function extractPrice(text) {
+  if (!text) return null;
 
-  // Percorre todas as ocorrências de preço no texto e devolve o primeiro valor > 10€
-  const matches = texto.matchAll(/(\d{1,3}(?:[.\s]\d{3})+[.,]\d{2}|\d+[.,]\d{2})\s*€/gi);
+  const matches = text.matchAll(/(\d{1,3}(?:[.\s]\d{3})+[.,]\d{2}|\d+[.,]\d{2})\s*€/gi);
 
   for (const match of matches) {
-    let valorStr = match[1];
+    let valStr = match[1];
 
-    if ((valorStr.includes(".") || valorStr.includes(" ")) && valorStr.includes(",")) {
-      valorStr = valorStr.replace(/[.\s]/g, "").replace(",", ".");
-    } else if (valorStr.includes(",")) {
-      valorStr = valorStr.replace(",", ".");
+    if ((valStr.includes(".") || valStr.includes(" ")) && valStr.includes(",")) {
+      valStr = valStr.replace(/[.\s]/g, "").replace(",", ".");
+    } else if (valStr.includes(",")) {
+      valStr = valStr.replace(",", ".");
     }
 
-    const precoFinal = parseFloat(valorStr);
-    if (!isNaN(precoFinal) && precoFinal > 10) {
-      return precoFinal;
+    const finalPrice = parseFloat(valStr);
+    if (!isNaN(finalPrice) && finalPrice > 10) {
+      return finalPrice;
     }
   }
 
   return null;
 }
 
-function extrairDisponibilidade(texto) {
-  const lower = texto.toLowerCase();
+function extractAvailability(text) {
+  const lower = text.toLowerCase();
   if (lower.includes("indisponível") || lower.includes("esgotado") || lower.includes("out of stock")) {
     return false;
   }
   return true;
 }
 
-function extrairTitulo(html) {
+function extractTitle(html) {
   const matchH1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
   if (matchH1) return matchH1[1].replace(/<[^>]+>/g, "").trim();
 
@@ -400,7 +442,7 @@ function extrairTitulo(html) {
   return null;
 }
 
-function esperar(ms) {
+function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
